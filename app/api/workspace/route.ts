@@ -1,10 +1,14 @@
 import { env } from 'cloudflare:workers';
 import { workspaceSchema, seedWorkspace } from '@/lib/product-model';
 
-// Loopback demo only. This shared store has no production account/isolation claims.
-function local(request:Request) {return ['localhost','127.0.0.1','[::1]'].includes(new URL(request.url).hostname);}
+// The demo is intentionally scoped to local development and this private Sites
+// deployment. It is not an account-isolated production workspace.
+function allowedHost(request:Request) {
+  const host = new URL(request.url).hostname;
+  return ['localhost','127.0.0.1','[::1]'].includes(host) || host.endsWith('.chatgpt.site');
+}
 export async function GET(request:Request) {
-  if(!local(request))return Response.json({error:'This demonstration workspace is local only.'},{status:403});
+  if(!allowedHost(request))return Response.json({error:'This demonstration workspace is restricted to the LaunchLayer preview.'},{status:403});
   try {
     if(!env.DB)throw new Error('Database unavailable');
     const seed=seedWorkspace();
@@ -14,7 +18,7 @@ export async function GET(request:Request) {
   } catch {return Response.json({error:'Local workspace storage is unavailable. Your edits have not been saved.'},{status:503});}
 }
 export async function PUT(request:Request) {
-  if(!local(request))return Response.json({error:'Local preview only'},{status:403});
+  if(!allowedHost(request))return Response.json({error:'LaunchLayer preview only'},{status:403});
   try {
     const value=workspaceSchema.safeParse(await request.json());
     if(!value.success)return Response.json({error:'Invalid product data'},{status:400});
