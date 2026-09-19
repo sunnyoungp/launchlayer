@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1789839151246,
+      "tag": "0000_launchlayer",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789842853316,
+      "tag": "0001_product_workspace",
+      "breakpoints": true
+    }
+  ]
+}
