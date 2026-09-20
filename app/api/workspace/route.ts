@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { workspaceSchema, seedWorkspace } from '@/lib/product-model';
+import { normalizeWorkspace, seedWorkspace } from '@/lib/product-model';
 
 // The demo is intentionally scoped to local development and this private Sites
 // deployment. It is not an account-isolated production workspace.
@@ -14,16 +14,15 @@ export async function GET(request:Request) {
     const seed=seedWorkspace();
     await env.DB.prepare('INSERT OR IGNORE INTO demo_workspace (id,payload,revision) VALUES (?,?,0)').bind('local',JSON.stringify(seed)).run();
     const row=await env.DB.prepare('SELECT payload, revision FROM demo_workspace WHERE id=?').bind('local').first<{payload:string;revision:number}>();
-    return Response.json({...JSON.parse(row!.payload),revision:row!.revision});
-  } catch {return Response.json({error:'Local workspace storage is unavailable. Your edits have not been saved.'},{status:503});}
+    return Response.json(normalizeWorkspace({...JSON.parse(row!.payload),revision:row!.revision}));
+  } catch {return Response.json({error:'Workspace storage is unavailable. Your edits have not been saved.'},{status:503});}
 }
 export async function PUT(request:Request) {
   if(!allowedHost(request))return Response.json({error:'LaunchLayer preview only'},{status:403});
   try {
-    const value=workspaceSchema.safeParse(await request.json());
-    if(!value.success)return Response.json({error:'Invalid product data'},{status:400});
+    const value=normalizeWorkspace(await request.json());
     if(!env.DB)throw new Error('Database unavailable');
-    const data=value.data;
+    const data=value;
     const result=await env.DB.prepare('UPDATE demo_workspace SET payload=?,revision=revision+1 WHERE id=? AND revision=?').bind(JSON.stringify(data),'local',data.revision).run();
     if(!result.meta.changes)return Response.json({error:'Another tab saved a newer version. Reload before making further changes.'},{status:409});
     return Response.json({revision:data.revision+1});
