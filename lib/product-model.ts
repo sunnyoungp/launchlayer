@@ -28,7 +28,7 @@ export const claimExamples = [
   ['Clinical', 'Clinically proven to erase wrinkles', 'Helps soften the appearance of fine lines.'],
 ] as const;
 
-const attachmentSchema = z.object({ id:z.string(),name:z.string(),kind:z.enum(['formula','packaging','evidence','manufacturing']),mime:z.string(),data:z.string().max(2900000),manual:z.boolean() });
+const attachmentSchema = z.object({ id:z.string(),name:z.string(),kind:z.enum(['formula','packaging','evidence','manufacturing']),mime:z.string(),data:z.string().max(2900000),manual:z.boolean(),extractedText:z.string().max(150000).optional() });
 export const claimSchema = z.object({ id:z.string(),text:z.string(),context:z.string(),example:z.string(),decisions:z.record(z.enum(markets),z.object({action:z.enum(actionNames),wording:z.string(),note:z.string(),at:z.string()})).default({}),removed:z.boolean().default(false) });
 export const findingSchema = z.object({id:z.string(),ruleId:z.string(),market:z.enum(markets),category:z.string(),severity:z.string(),status:z.enum(findingStatuses),readinessImpact:z.enum(readinessImpacts),title:z.string(),explanation:z.string(),action:z.string(),sourceIds:z.array(z.string()),createdAt:z.string(),updatedAt:z.string(),provision:z.string().optional(),effectiveDate:z.string().optional(),confidence:z.string().optional(),resolution:z.string().optional(),evidenceIds:z.array(z.string()).optional(),decisionId:z.string().optional()});
 export const productSchema = z.object({
@@ -46,7 +46,7 @@ export function normalizeWorkspace(value:unknown):Workspace {
   return workspaceSchema.parse({name:raw.name??'Atelier Commerce',revision:Number.isInteger(raw.revision)?raw.revision:0,products});
 }
 export function newProduct(kind:'new'|'existing'):Product {
-  return {id:crypto.randomUUID(),name:'',sku:'',kind,lifecycle:kind==='new'?'New · In development':'Existing · On market',markets:['US'],current:kind==='existing'?['US']:[],category:'Leave-on facial skincare',format:'Serum',areas:['Face'],users:['Adults'],benefits:['Hydration'],channels:['DTC'],formulaStrategy:'Global',packagingStrategy:'Universal',ingredients:[],avoid:[],preferences:[],claims:[],claimsStrategy:'unreviewed',packaging:'',manufacturer:'',evidenceWork:[],attachments:[],safetyReviewed:false,marketEntryConfirmed:[],findings:[],reviewed:false,assessed:false,version:1,validatedVersion:null,pathway:'Cosmetic',strategy:'',tasks:[],activity:[]};
+  return {id:crypto.randomUUID(),name:'',sku:'',kind,lifecycle:kind==='new'?'New · In development':'Existing · On market',markets:[],current:[],category:'Leave-on facial skincare',format:'Serum',areas:['Face'],users:['Adults'],benefits:['Hydration'],channels:['DTC'],formulaStrategy:'Global',packagingStrategy:'Universal',ingredients:[],avoid:[],preferences:[],claims:[],claimsStrategy:'unreviewed',packaging:'',manufacturer:'',evidenceWork:[],attachments:[],safetyReviewed:false,marketEntryConfirmed:[],findings:[],reviewed:false,assessed:false,version:1,validatedVersion:null,pathway:'Cosmetic',strategy:'',tasks:[],activity:[]};
 }
 export function makeClaim(example:string):Claim {
   const row=claimExamples.find(x=>x[0]===example);
@@ -106,7 +106,6 @@ export function reconcileFindings(p:Product):Product { const generated=p.markets
 export function issuesFor(p:Product,market:MarketCode):Issue[] {
   return findingsFor(p,market).filter(f=>f.status!=='resolved'&&f.status!=='not_applicable').map(f=>({id:f.id,title:f.title,why:f.explanation,action:f.action,dimension:f.category,source:f.sourceIds[0]??'SRC-US-01',type:f.readinessImpact==='blocking'?'Legal requirement':'Product recommendation',status:f.readinessImpact==='blocking'?'Changes required':'Ready after administrative actions',target:f.category==='Formula'?'formula':f.category==='Claims'?'claims':'launch',findingStatus:f.status,readinessImpact:f.readinessImpact,confidence:f.confidence,effectiveDate:f.effectiveDate,provision:f.provision}));
 }
-const precedence:ReadinessStatus[]=['Hold','Insufficient information','Classification risk','Reformulation required','Changes required','Ready after administrative actions','Ready based on reviewed information'];
 export function readiness(p:Product,market:MarketCode):ReadinessStatus {
   if(!p.assessed)return 'Insufficient information';
   const active=findingsFor(p,market).filter(f=>f.status!=='resolved'&&f.status!=='not_applicable');
